@@ -10,7 +10,7 @@ use scraper::{Html, Selector};
 #[derive(Parser, Debug)]
 struct Cli {
     /// By default, info logging is enabled.
-    /// Passing `-v` one time also prints debug, and -vv trace.
+    /// Passing `-v` one time also prints debug, and `-vv` trace.
     #[clap(long, short = 'v', parse(from_occurrences))]
     verbose: i8,
 
