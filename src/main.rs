@@ -94,11 +94,11 @@ fn latest_version() -> Result<String> {
     let bold_selector = Selector::parse("b.Premium").unwrap();
 
     let div = document.select(&version_selector).next()
-        .context(format!("Unable to find {:#?}!", version_selector))?;
+        .with_context(|| format!("Unable to find {:#?}!", version_selector))?;
     debug!("div = {}", div.html());
 
     let bold = div.select(&bold_selector).next()
-        .context(format!("Unable to find {:#?}!", bold_selector))?;
+        .with_context(|| format!("Unable to find {:#?}!", bold_selector))?;
     debug!("bold = {}", bold.inner_html());
 
     let version = bold.inner_html();
