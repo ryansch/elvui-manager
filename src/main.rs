@@ -5,6 +5,8 @@ use anyhow::{Context, Result, bail};
 use std::path::PathBuf;
 use version_compare::{Cmp, Version};
 use scraper::{Html, Selector};
+use tempfile::Builder;
+use std::fs::File;
 
 /// Installs / Updates ElvUI
 #[derive(Parser, Debug)]
@@ -25,16 +27,19 @@ fn main() -> Result<()> {
     let mut builder = env_logger::Builder::from_default_env();
     builder
         .filter(None, verbose_to_log_level(args.verbose).unwrap().to_level_filter())
+        .filter_module("html5ever", log::LevelFilter::Info)
+        .filter_module("selectors", log::LevelFilter::Info)
         .init();
 
     debug!("args: {:?}", &args);
 
     let mut install_needed = true;
+    let mut installed_version = String::from("");
 
     // Check installed version
-    let result = installed_version(&args.addons_path);
+    let result = fetch_installed_version(&args.addons_path);
     if result.is_ok() {
-        let installed_version = result.unwrap();
+        installed_version = result.unwrap();
         info!("Found installed version: {}", installed_version);
 
         // Check latest available
@@ -56,7 +61,7 @@ fn main() -> Result<()> {
 
     if install_needed == true {
         info!("Installing ElvUI");
-        install()?;
+        install(&args.addons_path, installed_version)?;
     }
 
     Ok(())
@@ -71,7 +76,7 @@ fn verbose_to_log_level(verbose: i8) -> Result<Level> {
     }
 }
 
-fn installed_version(addons_path: &PathBuf) -> Result<String> {
+fn fetch_installed_version(addons_path: &PathBuf) -> Result<String> {
     let mut path = PathBuf::from(addons_path);
     path.push("ElvUI/ElvUI_Mainline.toc");
 
@@ -105,7 +110,29 @@ fn latest_version() -> Result<String> {
     Ok(version)
 }
 
-fn install() -> Result<()> {
+fn install(addons_path: &PathBuf, version: String) -> Result<()> {
+    if !addons_path.is_dir() {
+        bail!("Unable to install! Addons path does not exist!");
+    }
+
+    // create temp dir
+    let tempdir = Builder::new()
+        .prefix("elvui-manager")
+        .rand_bytes(5)
+        .tempdir()?;
+
+    // download archive
+    let mut response = reqwest::blocking::get(format!("https://www.tukui.org/downloads/elvui-{}.zip", version))?;
+    let filename = tempdir.path().join("elvui.zip");
+    let mut file = File::create(filename)?;
+    response.copy_to(&mut file)?;
+
+    // unzip archive
+    let mut archive = zip::ZipArchive::new(&file).unwrap();
+    archive.extract(tempdir.path().join("elvui"))?;
+
+    // remove existing dirs
+    // move new dirs into place
     Ok(())
 }
 
