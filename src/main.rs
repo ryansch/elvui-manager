@@ -1,4 +1,4 @@
-use log::{debug, error, log_enabled, info, Level};
+use log::{debug, info, Level};
 use clap::Parser;
 use regex::Regex;
 use anyhow::{Context, Result, bail};
@@ -34,16 +34,16 @@ fn main() -> Result<()> {
     debug!("args: {:?}", &args);
 
     let mut install_needed = true;
-    let mut installed_version = String::from("");
+    let mut latest_version = String::from("");
 
     // Check installed version
     let result = fetch_installed_version(&args.addons_path);
     if result.is_ok() {
-        installed_version = result.unwrap();
+        let installed_version = result.unwrap();
         info!("Found installed version: {}", installed_version);
 
         // Check latest available
-        let latest_version = latest_version()?;
+        latest_version = fetch_latest_version()?;
         info!("Found latest available version: {}", latest_version);
 
         let installed = Version::from(&installed_version).unwrap();
@@ -60,8 +60,8 @@ fn main() -> Result<()> {
     }
 
     if install_needed == true {
-        info!("Installing ElvUI");
-        install(&args.addons_path, installed_version)?;
+        info!("Installing ElvUI {}", latest_version);
+        install(&args.addons_path, latest_version)?;
     }
 
     Ok(())
@@ -77,8 +77,7 @@ fn verbose_to_log_level(verbose: i8) -> Result<Level> {
 }
 
 fn fetch_installed_version(addons_path: &PathBuf) -> Result<String> {
-    let mut path = PathBuf::from(addons_path);
-    path.push("ElvUI/ElvUI_Mainline.toc");
+    let path = addons_path.join("ElvUI/ElvUI_Mainline.toc");
 
     debug!("Using path: {:?}", &path);
     let content = std::fs::read_to_string(&path)
@@ -90,7 +89,7 @@ fn fetch_installed_version(addons_path: &PathBuf) -> Result<String> {
     Ok(caps[1].to_string())
 }
 
-fn latest_version() -> Result<String> {
+fn fetch_latest_version() -> Result<String> {
     let resp = reqwest::blocking::get("https://www.tukui.org/download.php?ui=elvui")?
         .text()?;
 
@@ -118,21 +117,45 @@ fn install(addons_path: &PathBuf, version: String) -> Result<()> {
     // create temp dir
     let tempdir = Builder::new()
         .prefix("elvui-manager")
-        .rand_bytes(5)
         .tempdir()?;
+    debug!("tempdir: {:#?}", tempdir);
 
     // download archive
     let mut response = reqwest::blocking::get(format!("https://www.tukui.org/downloads/elvui-{}.zip", version))?;
     let filename = tempdir.path().join("elvui.zip");
-    let mut file = File::create(filename)?;
+    debug!("filename: {:#?}", &filename);
+
+    let mut file = File::create(&filename)?;
     response.copy_to(&mut file)?;
 
     // unzip archive
+    let extracted_path = tempdir.path().join("elvui");
+    let file = File::open(&filename)?;
     let mut archive = zip::ZipArchive::new(&file).unwrap();
-    archive.extract(tempdir.path().join("elvui"))?;
+    archive.extract(&extracted_path)?;
 
-    // remove existing dirs
-    // move new dirs into place
+    let targets: [String; 2] = [
+        "ElvUI".to_string(),
+        "ElvUI_OptionsUI".to_string()
+    ];
+    for target in targets {
+        let target_path = addons_path.join(&target);
+
+        // Remove destination path if exists
+        if target_path.is_dir() {
+            std::fs::remove_dir_all(&target_path)?;
+        }
+
+        // Move target from archive to addons dir
+        std::fs::rename(
+            extracted_path.join(&target),
+            &target_path
+        )?;
+    }
+
+    // Use to keep tempdir for debugging
+    // tempdir.into_path();
+    tempdir.close()?;
     Ok(())
 }
 
