@@ -121,7 +121,10 @@ fn install(addons_path: &PathBuf, version: String) -> Result<()> {
     debug!("tempdir: {:#?}", tempdir);
 
     // download archive
-    let mut response = reqwest::blocking::get(format!("https://www.tukui.org/downloads/elvui-{}.zip", version))?;
+    let mut response =
+        reqwest::blocking::get(
+            format!("https://www.tukui.org/downloads/elvui-{}.zip", version)
+        )?;
     let filename = tempdir.path().join("elvui.zip");
     debug!("filename: {:#?}", &filename);
 
