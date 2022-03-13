@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn check_latest_version() {
-        let result = latest_version();
+        let result = fetch_latest_version();
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "12.66");
     }
