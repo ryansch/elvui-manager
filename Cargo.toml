@@ -3,6 +3,11 @@ name = "elvui-manager"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ryan Schlesinger <ryan@ryanschlesinger.com>"]
+description = "Installs / Updates ElvUI"
+license = "MIT"
+homepage = "https://github.com/ryansch/elvui-manager"
+categories = ["command-line-utilities"]
+keywords = ["cli", "game", "wow", "elvui"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
