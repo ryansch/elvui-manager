@@ -10,6 +10,7 @@ use std::fs::File;
 
 /// Installs / Updates ElvUI
 #[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     /// By default, info logging is enabled.
     /// Passing `-v` one time also prints debug, and `-vv` trace.
