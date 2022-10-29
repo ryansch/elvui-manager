@@ -35,17 +35,16 @@ fn main() -> Result<()> {
     debug!("args: {:?}", &args);
 
     let mut install_needed = true;
-    let mut latest_version = String::from("");
+
+    // Check latest available
+    let latest_version = fetch_latest_version()?;
+    info!("Found latest available version: {}", latest_version);
 
     // Check installed version
     let result = fetch_installed_version(&args.addons_path);
     if result.is_ok() {
         let installed_version = result.unwrap();
         info!("Found installed version: {}", installed_version);
-
-        // Check latest available
-        latest_version = fetch_latest_version()?;
-        info!("Found latest available version: {}", latest_version);
 
         let installed = Version::from(&installed_version).unwrap();
         let latest = Version::from(&latest_version).unwrap();
