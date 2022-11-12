@@ -139,6 +139,7 @@ fn install(addons_path: &PathBuf, version: String) -> Result<()> {
     archive.extract(&extracted_path)?;
     debug!("extracted archive");
 
+    // TODO: Don't hardcode zip dirs
     let targets: [String; 3] = [
         "ElvUI".to_string(),
         "ElvUI_Options".to_string(),
