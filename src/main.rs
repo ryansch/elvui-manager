@@ -130,16 +130,19 @@ fn install(addons_path: &PathBuf, version: String) -> Result<()> {
 
     let mut file = File::create(&filename)?;
     response.copy_to(&mut file)?;
+    debug!("copied response");
 
     // unzip archive
     let extracted_path = tempdir.path().join("elvui");
     let file = File::open(&filename)?;
     let mut archive = zip::ZipArchive::new(&file).unwrap();
     archive.extract(&extracted_path)?;
+    debug!("extracted archive");
 
-    let targets: [String; 2] = [
+    let targets: [String; 3] = [
         "ElvUI".to_string(),
-        "ElvUI_OptionsUI".to_string()
+        "ElvUI_Options".to_string(),
+        "ElvUI_Libraries".to_string()
     ];
     for target in targets {
         let target_path = addons_path.join(&target);
