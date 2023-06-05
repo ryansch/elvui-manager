@@ -4,9 +4,9 @@ use regex::Regex;
 use anyhow::{Context, Result, bail};
 use std::path::PathBuf;
 use version_compare::{Cmp, Version};
-use scraper::{Html, Selector};
 use tempfile::Builder;
 use std::fs::File;
+use serde::{Serialize, Deserialize};
 
 /// Installs / Updates ElvUI
 #[derive(Parser, Debug)]
@@ -20,6 +20,19 @@ struct Cli {
     /// The path to the WoW addons directory
     #[clap(parse(from_os_str), default_value = "/Applications/World of Warcraft/_retail_/Interface/Addons" )]
     addons_path: std::path::PathBuf,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct ElvuiMetadata {
+    slug: String,
+    name: String,
+    url: String,
+    version: String,
+    changelog_url: String,
+    ticket_url: String,
+    git_url: String,
+    last_update: String,
+    directories: Vec<String>,
 }
 
 fn main() -> Result<()> {
@@ -37,8 +50,9 @@ fn main() -> Result<()> {
     let mut install_needed = true;
 
     // Check latest available
-    let latest_version = fetch_latest_version()?;
-    info!("Found latest available version: {}", latest_version);
+    let metadata = fetch_metadata()?;
+    let latest_version = &metadata.version;
+    info!("Found latest available version: {} (updated on {})", latest_version, metadata.last_update);
 
     // Check installed version
     let result = fetch_installed_version(&args.addons_path);
@@ -61,7 +75,7 @@ fn main() -> Result<()> {
 
     if install_needed == true {
         info!("Installing ElvUI {}", latest_version);
-        install(&args.addons_path, latest_version)?;
+        install(&args.addons_path, metadata)?;
     }
 
     Ok(())
@@ -89,27 +103,15 @@ fn fetch_installed_version(addons_path: &PathBuf) -> Result<String> {
     Ok(caps[1].to_string())
 }
 
-fn fetch_latest_version() -> Result<String> {
-    let resp = reqwest::blocking::get("https://www.tukui.org/download.php?ui=elvui")?
-        .text()?;
+fn fetch_metadata() -> Result<ElvuiMetadata> {
+    let resp: ElvuiMetadata = reqwest::blocking::get("https://api.tukui.org/v1/addon/elvui")?
+        .json()?;
+    debug!("json = {:#?}", resp);
 
-    let document = Html::parse_document(&resp);
-    let version_selector = Selector::parse("div#version").unwrap();
-    let bold_selector = Selector::parse("b.Premium").unwrap();
-
-    let div = document.select(&version_selector).next()
-        .with_context(|| format!("Unable to find {:#?}!", version_selector))?;
-    debug!("div = {}", div.html());
-
-    let bold = div.select(&bold_selector).next()
-        .with_context(|| format!("Unable to find {:#?}!", bold_selector))?;
-    debug!("bold = {}", bold.inner_html());
-
-    let version = bold.inner_html();
-    Ok(version)
+    Ok(resp)
 }
 
-fn install(addons_path: &PathBuf, version: String) -> Result<()> {
+fn install(addons_path: &PathBuf, metadata: ElvuiMetadata) -> Result<()> {
     if !addons_path.is_dir() {
         bail!("Unable to install! Addons path does not exist!");
     }
@@ -122,9 +124,7 @@ fn install(addons_path: &PathBuf, version: String) -> Result<()> {
 
     // download archive
     let mut response =
-        reqwest::blocking::get(
-            format!("https://www.tukui.org/downloads/elvui-{}.zip", version)
-        )?;
+        reqwest::blocking::get(metadata.url)?;
     let filename = tempdir.path().join("elvui.zip");
     debug!("filename: {:#?}", &filename);
 
@@ -139,13 +139,7 @@ fn install(addons_path: &PathBuf, version: String) -> Result<()> {
     archive.extract(&extracted_path)?;
     debug!("extracted archive");
 
-    // TODO: Don't hardcode zip dirs
-    let targets: [String; 3] = [
-        "ElvUI".to_string(),
-        "ElvUI_Options".to_string(),
-        "ElvUI_Libraries".to_string()
-    ];
-    for target in targets {
+    for target in metadata.directories {
         let target_path = addons_path.join(&target);
 
         // Remove destination path if exists
@@ -171,10 +165,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn check_latest_version() {
-        let result = fetch_latest_version();
+    fn check_metadata() {
+        let result = fetch_metadata();
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "12.66");
+        assert_eq!(result.unwrap().version, "12.66");
     }
 
     #[test]
